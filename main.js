@@ -60,6 +60,7 @@ document.querySelector('#upload').onclick = (event) => {
       dataset[name] = JSON.parse(await data.async('text'))
     }
     loadData(dataset)
+    document.querySelector('#run').disabled = false
   }
   input.click()
 }
