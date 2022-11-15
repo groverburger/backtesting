@@ -3,17 +3,20 @@ import { simulate, loadData } from './simulate.js'
 const editor = ace.edit('editor', { mode: 'ace/mode/javascript' })
 //editor.setTheme("ace/theme/monokai")
 let results
+let ticket = [
+  {
+    type: "transfer-in",
+    money: 1000,
+    date: "2017-01-01T00:00:00.000Z"
+  }
+]
+
+document.querySelector('#run').disabled = true
 
 document.querySelector('#run').onclick = (event) => {
   const strat = Function('api', editor.getValue())
-  const ticket = [
-    {
-      type: "transfer-in",
-      money: 1000,
-      date: "2017-01-01T00:00:00.000Z"
-    }
-  ]
-  results = simulate(strat, ticket)
+  results = simulate(strat, JSON.parse(JSON.stringify(ticket)))
+  console.log('simulation done')
   document.querySelector('#results').innerHTML = JSON.stringify(results.results, null, 2)
   document.querySelector('#history').innerHTML = JSON.stringify(results.ticket, null, 2)
   graph()
@@ -61,6 +64,16 @@ document.querySelector('#upload').onclick = (event) => {
     }
     loadData(dataset)
     document.querySelector('#run').disabled = false
+  }
+  input.click()
+}
+
+document.querySelector('#upload-ticket').onclick = (event) => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.onchange = async (event) => {
+    ticket = JSON.parse(await input.files[0].text())
+    console.log(ticket)
   }
   input.click()
 }
