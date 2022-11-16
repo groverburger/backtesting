@@ -72,12 +72,13 @@ function standardDeviation (data) {
   return Math.sqrt(distances / data.length)
 }
 
-export function simulate (strategy, ticket) {
+export function simulate (strategy, ticket, loadingCallback = () => {}) {
   console.log('simulating...')
   let money = 0
   const stocks = {}
   const buyIn = {}
-  const endDate = Infinity
+  let startDate = 0
+  const endDate = timeArray.length
   for (const symbol in data) { stocks[symbol] = 0 }
   let date = 0
   const yearlyStatus = []
@@ -191,7 +192,7 @@ export function simulate (strategy, ticket) {
   const run = (strat) => {
     hasRun = true
 
-    while (date < timeArray.length && timeArray[date].valueOf() < endDate) {
+    while (date < endDate) {
       if (strat) {
         strat(timeArray[date])
       }
@@ -213,6 +214,8 @@ export function simulate (strategy, ticket) {
       if (isExposed) { exposure += 1 }
       totalPossibleExposure += 1
       date += 1
+
+      loadingCallback((date - startDate) / (endDate - startDate))
 
       // start a new year and calculate tax
       if (timeArray[date] && date > 1) {
@@ -243,6 +246,7 @@ export function simulate (strategy, ticket) {
   // run through the ticket
   for (const entry of ticket) {
     goToDate(entry.date)
+    startDate = Math.max(date, startDate)
 
     if (entry.type === 'transfer-in') {
       money += entry.money
@@ -308,7 +312,7 @@ export function simulate (strategy, ticket) {
   }
 
   const stdDev = standardDeviation(yearlyStatus.filter(x => x.percentage).map(x => x.percentage))
-  const sharpeRatio = ((status().total / 1000) - (1.04 ** yearlyStatus.length)) / standardDeviation
+  const sharpeRatio = ((status().total / 1000) - (1.04 ** yearlyStatus.length)) / stdDev
 
   return {
     returns,
