@@ -1,7 +1,6 @@
 import { simulate, loadData } from './simulate.js'
 
 let editor
-let editorDiv
 let results
 let ticket = [
   {
@@ -109,36 +108,41 @@ function createLoadingBackground () {
 
 function layout (mode = 'full') {
   const grid = document.querySelector('#gridWrapper')
-  grid.innerHTML = ''
+  const editor = document.querySelector('#editor')
+  const results = document.querySelector('#results')
+  const history = document.querySelector('#history')
+  const plot = document.querySelector('#plot')
+  plot.hidden = true
+  editor.hidden = true
+  results.hidden = true
+  history.hidden = true
 
   if (mode === 'graph') {
-    const plot = document.createElement('div')
-    plot.id = 'plot'
     plot.style = 'grid-column: 1 / 5; grid-row: 1 / 3;'
-    grid.appendChild(plot)
+    plot.hidden = false
+  }
+
+  if (mode === 'code') {
+    editor.style = 'grid-column: 1 / 5; grid-row: 1 / 3;'
+    editor.hidden = false
+  }
+
+  if (mode === 'results') {
+    results.style = 'grid-column: 1 / 3; grid-row: 1 / 3;'
+    history.style = 'grid-column: 3 / 5; grid-row: 1 / 3;'
+    results.hidden = false
+    history.hidden = false
   }
 
   if (mode === 'full') {
-    if (editorDiv) {
-      grid.appendChild(editorDiv)
-      editorDiv.style = 'grid-column: 1 / 3; grid-row: 1 / 2;'
-    } else {
-      const editor = document.createElement('div')
-      editor.id = 'editor'
-      grid.appendChild(editor)
-      editor.style = 'grid-column: 1 / 3; grid-row: 1 / 2;'
-      editorDiv = editor
-    }
-    const results = document.createElement('div')
-    results.id = 'results'
-    grid.appendChild(results)
-    const history = document.createElement('div')
-    history.id = 'history'
-    grid.appendChild(history)
-    const plot = document.createElement('div')
-    plot.id = 'plot'
+    editor.style = 'grid-column: 1 / 3; grid-row: 1 / 2;'
+    results.style = 'grid-column: 3 / 4; grid-row: 1 / 2;'
+    history.style = 'grid-column: 4 / 5; grid-row: 1 / 2;'
     plot.style = 'grid-column: 1 / 5; grid-row: 2 / 3;'
-    grid.appendChild(plot)
+    editor.hidden = false
+    results.hidden = false
+    history.hidden = false
+    plot.hidden = false
   }
 }
 

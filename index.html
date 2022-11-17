@@ -79,15 +79,22 @@
 
   <body>
     <button id='run'> Run </button>
-    <button id='upload'> Upload Data </button>
+    <button id='upload'> Upload Dataset </button>
     <select id='layout' value='full'>
       <option value='full'> Full Editor </option>
-      <option value='graph'> Graph Only </option>
+      <option value='graph'> Graph </option>
+      <option value='code'> Code </option>
+      <option value='results'> Results </option>
     </select>
     Start Date:
     <input type='date' id='startDate' />
     <div id='title'> Backtester v0.1 </div>
-    <div id='gridWrapper'> </div>
+    <div id='gridWrapper'>
+      <div id='editor'> </div>
+      <div id='results'> </div>
+      <div id='history'> </div>
+      <div id='plot'> </div>
+    </div>
   </body>
 
   <script src='https://cdnjs.cloudflare.com/ajax/libs/ace/1.12.5/ace.min.js'></script>
