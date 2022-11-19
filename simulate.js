@@ -3,7 +3,19 @@ let userdata = {}
 let timeArray = []
 let timeHash = {}
 
-export function loadData (dataSource) {
+onmessage = ({ data }) => {
+  const { action, args } = data
+
+  if (action === 'load') {
+    loadData(...args)
+  }
+
+  if (action === 'simulate') {
+    simulate(...args)
+  }
+}
+
+function loadData (dataSource) {
   let longestLength = 0
   let longestList
 
@@ -45,7 +57,10 @@ export function loadData (dataSource) {
     }
   }
 
-  console.log('loaded dataset')
+  postMessage({
+    type: 'dataset-loaded',
+    payload: {}
+  })
 }
 
 function timeHashMapping (date) {
@@ -72,8 +87,7 @@ function standardDeviation (data) {
   return Math.sqrt(distances / data.length)
 }
 
-export function simulate (strategy, ticket, loadingCallback = () => {}) {
-  console.log('simulating...')
+function simulate (strategy, ticket) {
   let money = 0
   const stocks = {}
   const buyIn = {}
@@ -215,7 +229,15 @@ export function simulate (strategy, ticket, loadingCallback = () => {}) {
       totalPossibleExposure += 1
       date += 1
 
-      loadingCallback((date - startDate) / (endDate - startDate))
+      const progress = Math.round((date - startDate) * 100 / (endDate - startDate))
+      const lastProgress = Math.round(((date - 1) - startDate) * 100 / (endDate - startDate))
+
+      if (progress > lastProgress) {
+        postMessage({
+          type: 'simulation-progress',
+          payload: progress
+        })
+      }
 
       // start a new year and calculate tax
       if (timeArray[date] && date > 1) {
@@ -292,6 +314,7 @@ export function simulate (strategy, ticket, loadingCallback = () => {}) {
   }
 
   // execute the strategy
+  strategy = Function('api', strategy)
   const customResults = strategy({
     buy,
     sell,
@@ -314,18 +337,21 @@ export function simulate (strategy, ticket, loadingCallback = () => {}) {
   const stdDev = standardDeviation(yearlyStatus.filter(x => x.percentage).map(x => x.percentage))
   const sharpeRatio = ((status().total / 1000) - (1.04 ** yearlyStatus.length)) / stdDev
 
-  return {
-    returns,
-    ticket,
-    yearlyStatus,
-    results: {
-      ...status(),
-      ...(typeof customResults === 'object' ? customResults : {}),
-      exposure: exposure / totalPossibleExposure,
-      buys: ticket.filter(e => e.type === 'buy').length,
-      sells: ticket.filter(e => e.type === 'sell').length,
-      stdDev,
-      sharpeRatio
+  postMessage({
+    type: 'simulation-result',
+    payload: {
+      returns,
+      ticket,
+      yearlyStatus,
+      results: {
+        ...status(),
+        ...(typeof customResults === 'object' ? customResults : {}),
+        exposure: exposure / totalPossibleExposure,
+        buys: ticket.filter(e => e.type === 'buy').length,
+        sells: ticket.filter(e => e.type === 'sell').length,
+        stdDev,
+        sharpeRatio
+      }
     }
-  }
+  })
 }

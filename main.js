@@ -1,5 +1,3 @@
-import { simulate, loadData } from './simulate.js'
-
 let editor
 let results
 let ticket = [
@@ -15,21 +13,46 @@ setup()
 render()
 
 function setup () {
+  const simulator = new Worker('simulate.js')
+  simulator.postMessage(['test'])
+
+  simulator.onmessage = ({ data }) => {
+    const { type, payload } = data
+
+    if (type === 'simulation-result') {
+      results = payload
+      document.querySelector('#run').disabled = false
+      document.querySelector('#loadingBackground').remove()
+      render()
+    }
+
+    if (type === 'simulation-progress') {
+      document.querySelector('#loadingBackground progress').value = payload
+    }
+
+    if (type === 'dataset-loaded') {
+      document.querySelector('#run').disabled = false
+      document.querySelector('#loadingBackground').remove()
+    }
+  }
+
+  simulator.onerror = (event) => {
+    console.error(event)
+    alert(event.message)
+    document.querySelector('#loadingBackground').remove()
+    document.querySelector('#run').disabled = false
+  }
+
   document.querySelector('#run').disabled = true
 
   document.querySelector('#run').onclick = (event) => {
     createLoadingBackground()
 
-    const strat = Function('api', editor.getValue())
-    results = simulate(
-      strat,
-      JSON.parse(JSON.stringify(ticket)),
-      i => document.querySelector('#loadingBackground progress').value = Math.round(i * 100)
-    )
-
-    document.querySelector('#loadingBackground').remove()
-    console.log('simulation done')
-    render()
+    simulator.postMessage({
+      action: 'simulate',
+      args: [editor.getValue(), ticket]
+    })
+    document.querySelector('#run').disabled = true
   }
 
   window.onresize = render
@@ -42,7 +65,9 @@ function setup () {
       const { files } = await JSZip.loadAsync(input.files[0])
       createLoadingBackground()
 
-      console.log('loading dataset...')
+      // hopefully this should prevent the not being able to load datasets bug
+      input.value = null
+
       dataset = {}
       const length = Object.entries(files).length
       let i = 0
@@ -51,24 +76,13 @@ function setup () {
         i += 1
         document.querySelector('#loadingBackground progress').value = Math.round(i * 100 / length)
       }
-      loadData(dataset)
-      document.querySelector('#loadingBackground').remove()
-      document.querySelector('#run').disabled = false
+      simulator.postMessage({
+        action: 'load',
+        args: [dataset]
+      })
     }
     input.click()
   }
-
-  /*
-  document.querySelector('#uploadTicket').onclick = (event) => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.onchange = async (event) => {
-      ticket = JSON.parse(await input.files[0].text())
-      console.log(ticket)
-    }
-    input.click()
-  }
-  */
 
   document.querySelector('#startDate').value = '2017-01-01'
   document.querySelector('#startDate').onchange = (event) => {
@@ -86,7 +100,6 @@ function setup () {
   }
 
   document.querySelector('#layout').onchange = (event) => {
-    console.log(event.target.value)
     layout(event.target.value)
     render()
   }
