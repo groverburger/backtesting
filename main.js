@@ -1,5 +1,6 @@
 let editor
 let results
+let curveList = []
 let ticket = [
   {
     type: "transfer-in",
@@ -11,6 +12,8 @@ let ticket = [
 layout()
 setup()
 render()
+window.onresize = render
+setRunnable(false)
 
 function setup () {
   const simulator = new Worker('simulate.js')
@@ -21,8 +24,11 @@ function setup () {
 
     if (type === 'simulation-result') {
       results = payload
-      document.querySelector('#run').disabled = false
-      document.querySelector('#loadingBackground').remove()
+      curveList.push({
+        x: results.returns.map(e => e[0]),
+        y: results.returns.map(e => e[1])
+      })
+      setRunnable(true)
       render()
     }
 
@@ -31,31 +37,38 @@ function setup () {
     }
 
     if (type === 'dataset-loaded') {
-      document.querySelector('#run').disabled = false
-      document.querySelector('#loadingBackground').remove()
+      setRunnable(true)
     }
   }
 
   simulator.onerror = (event) => {
     console.error(event)
     alert(event.message)
-    document.querySelector('#loadingBackground').remove()
-    document.querySelector('#run').disabled = false
+    setRunnable(true)
   }
-
-  document.querySelector('#run').disabled = true
 
   document.querySelector('#run').onclick = (event) => {
     createLoadingBackground()
-
     simulator.postMessage({
       action: 'simulate',
       args: [editor.getValue(), ticket]
     })
-    document.querySelector('#run').disabled = true
+    setRunnable(false)
   }
 
-  window.onresize = render
+  document.querySelector('#clear').onclick = (event) => {
+    curveList = []
+    render()
+  }
+
+  document.querySelector('#addSpy').onclick = (event) => {
+    createLoadingBackground()
+    simulator.postMessage({
+      action: 'simulate',
+      args: ['api.buy("SPY")', ticket]
+    })
+    setRunnable(false)
+  }
 
   let dataset
   document.querySelector('#upload').onclick = (event) => {
@@ -100,8 +113,17 @@ function setup () {
   }
 
   document.querySelector('#layout').onchange = (event) => {
-    layout(event.target.value)
+    layout()
     render()
+  }
+}
+
+function setRunnable (value = false) {
+  document.querySelector('#run').disabled = !value
+  document.querySelector('#addSpy').disabled = !value
+
+  if (value) {
+    document.querySelector('#loadingBackground').remove()
   }
 }
 
@@ -119,7 +141,7 @@ function createLoadingBackground () {
   document.querySelector('body').appendChild(bg)
 }
 
-function layout (mode = 'full') {
+function layout (mode = document.querySelector('#layout').value) {
   const grid = document.querySelector('#gridWrapper')
   const editor = document.querySelector('#editor')
   const results = document.querySelector('#results')
@@ -131,27 +153,34 @@ function layout (mode = 'full') {
   history.hidden = true
 
   if (mode === 'graph') {
-    plot.style = 'grid-column: 1 / 5; grid-row: 1 / 3;'
+    plot.style = 'grid-column: 1 / 13; grid-row: 1 / 3;'
     plot.hidden = false
   }
 
   if (mode === 'code') {
-    editor.style = 'grid-column: 1 / 5; grid-row: 1 / 3;'
+    editor.style = 'grid-column: 1 / 13; grid-row: 1 / 3;'
     editor.hidden = false
   }
 
+  if (mode === 'code+graph') {
+    editor.style = 'grid-column: 1 / 5; grid-row: 1 / 3;'
+    plot.style = 'grid-column: 5 / 13; grid-row: 1 / 3;'
+    editor.hidden = false
+    plot.hidden = false
+  }
+
   if (mode === 'results') {
-    results.style = 'grid-column: 1 / 3; grid-row: 1 / 3;'
-    history.style = 'grid-column: 3 / 5; grid-row: 1 / 3;'
+    results.style = 'grid-column: 1 / 7; grid-row: 1 / 3;'
+    history.style = 'grid-column: 7 / 13; grid-row: 1 / 3;'
     results.hidden = false
     history.hidden = false
   }
 
   if (mode === 'full') {
-    editor.style = 'grid-column: 1 / 3; grid-row: 1 / 2;'
-    results.style = 'grid-column: 3 / 4; grid-row: 1 / 2;'
-    history.style = 'grid-column: 4 / 5; grid-row: 1 / 2;'
-    plot.style = 'grid-column: 1 / 5; grid-row: 2 / 3;'
+    editor.style = 'grid-column: 1 / 7; grid-row: 1 / 2;'
+    results.style = 'grid-column: 7 / 10; grid-row: 1 / 2;'
+    history.style = 'grid-column: 10 / 13; grid-row: 1 / 2;'
+    plot.style = 'grid-column: 1 / 13; grid-row: 2 / 3;'
     editor.hidden = false
     results.hidden = false
     history.hidden = false
@@ -182,6 +211,7 @@ function render () {
     document.querySelector('#history').innerHTML = JSON.stringify(results.ticket, null, 2)
   }
 
+  /*
   const graphs = [{
     x: results.returns.map(e => e[0]),
     y: results.returns.map(e => e[1]),
@@ -189,6 +219,14 @@ function render () {
     mode: 'lines',
     name: 'strat'
   }]
+  */
+
+  const graphs = curveList.map(({ x, y }) => ({
+    type: 'scatter',
+    mode: 'lines',
+    x,
+    y
+  }))
 
   document.querySelector('#plot').innerHTML = ''
   Plotly.newPlot(
