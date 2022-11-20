@@ -90,7 +90,7 @@ function standardDeviation (data) {
 function simulate (strategy, ticket) {
   let money = 0
   const stocks = {}
-  const buyIn = {}
+  const costBasis = {}
   let startDate = 0
   const endDate = timeArray.length
   for (const symbol in data) { stocks[symbol] = 0 }
@@ -101,56 +101,59 @@ function simulate (strategy, ticket) {
   let totalPossibleExposure = 0
   let hasRun = false
 
-  const buy = (symbol, moneyDown = Infinity, type = 'buy') => {
-    moneyDown = Math.min(money, moneyDown)
-    if (moneyDown <= 0) return
+  const buy = (symbol, percentage = 1, type = 'buy') => {
+    percentage = Math.min(1, percentage)
+    let moneyDown = percentage * money
+    if (moneyDown <= 0 || money < 0.01) { return }
+
     const price = getPrice(symbol, date)
     if (!price || price === Infinity) return
-    if (money < 0.01) return
 
     money -= moneyDown
     stocks[symbol] += moneyDown / price
 
-    buyIn[symbol] = buyIn[symbol] || 0
-    buyIn[symbol] += moneyDown
+    costBasis[symbol] = costBasis[symbol] || 0
+    costBasis[symbol] += moneyDown
 
     ticket.push({
       type,
       symbol,
-      amount: moneyDown / price,
       money: moneyDown,
+      percentage,
       date: timeArray[date].toISOString()
     })
 
     return true
   }
 
-  const sell = (symbol, amount = Infinity) => {
-    if (!stocks[symbol]) return
+  const sell = (symbol, percentage = 1) => {
+    percentage = Math.min(percentage, 1)
+    let amount = percentage * stocks[symbol]
+    if (amount <= 0 || !stocks[symbol]) { return }
+
     let price = getPrice(symbol, date)
     let i = 1
     while (!price && date - i >= 0) {
       price = getPrice(symbol, date - i)
       i += 1
     }
-    amount = Math.min(amount * stocks[symbol], stocks[symbol])
 
     const moneyUp = price * amount
     // 20% capital gains tax rough calculation
-    //money += moneyUp > buyIn[symbol] ? moneyUp - (moneyUp - buyIn[symbol]) * 0.2 : moneyUp
+    //money += moneyUp > costBasis[symbol] ? moneyUp - (moneyUp - costBasis[symbol]) * 0.2 : moneyUp
     money += moneyUp
     stocks[symbol] -= amount
 
-    buyIn[symbol] -= moneyUp
-    if (buyIn[symbol] <= 0.00001 || stocks[symbol] <= 0.00001) {
-      delete buyIn[symbol]
+    costBasis[symbol] -= moneyUp
+    if (costBasis[symbol] <= 0.00001 || stocks[symbol] <= 0.00001) {
+      delete costBasis[symbol]
     }
 
     ticket.push({
       type: 'sell',
       symbol,
-      amount,
       money: moneyUp,
+      percentage,
       date: timeArray[date].toISOString()
     })
 
@@ -167,11 +170,17 @@ function simulate (strategy, ticket) {
   }
 
   const status = () => {
-    const myStocks = Object.fromEntries(Object.entries(stocks).filter(([name, value]) => value))
+    const portfolio = Object.fromEntries(Object.entries(stocks).filter(([name, value]) => value))
     const potential = getPotential()
     const total = potential + money
-    const yearlyReturn = yearlyStatus.slice(1).reduce((prev, { percentage }) => prev + percentage, 0) / (yearlyStatus.length - 1)
-    return { myStocks, buyIn, money, potential, total, yearlyReturn, date: timeArray[date] }
+    return {
+      portfolio,
+      myStocks: portfolio,
+      costBasis,
+      money,
+      potential,
+      total
+    }
   }
 
   const getPrice = (symbol, index = date) => {
@@ -181,9 +190,11 @@ function simulate (strategy, ticket) {
     }
     index = Math.min(Math.max(index, 0), date)
     if (index !== index) { return undefined }
+    /*
     while (typeof data[symbol][index].price !== 'number' && index > 0) {
       index -= 1
     }
+    */
     if (!data[symbol][index]) { return undefined }
     return data[symbol][index].price
   }
@@ -316,15 +327,17 @@ function simulate (strategy, ticket) {
   // execute the strategy
   strategy = Function('api', strategy)
   const customResults = strategy({
+    run,
     buy,
     sell,
+    sellAll: () => Object.keys(status().portfolio).forEach(stock => sell(stock)),
     status,
     getStatus: status,
-    run,
     getPrice,
     getDateIndex,
     getSlope,
     movingAverage,
+    getMovingAverage: movingAverage,
     getUserdata: (name) => userdata[name]
   })
   if (!hasRun) { run() }
@@ -334,8 +347,11 @@ function simulate (strategy, ticket) {
     newYear()
   }
 
+  const years = yearlyStatus.length - 1
   const stdDev = standardDeviation(yearlyStatus.filter(x => x.percentage).map(x => x.percentage))
-  const sharpeRatio = ((status().total / 1000) - (1.04 ** yearlyStatus.length)) / stdDev
+  const percentReturn = (status().total / 1000) * 100 - 100
+  const riskFreeReturn = Math.pow(1.04, years) * 100 - 100
+  const sharpeRatio = (percentReturn - riskFreeReturn) / stdDev
 
   postMessage({
     type: 'simulation-result',
@@ -349,6 +365,8 @@ function simulate (strategy, ticket) {
         exposure: exposure / totalPossibleExposure,
         buys: ticket.filter(e => e.type === 'buy').length,
         sells: ticket.filter(e => e.type === 'sell').length,
+        percentReturn,
+        riskFreeReturn,
         stdDev,
         sharpeRatio
       }
