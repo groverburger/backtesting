@@ -229,6 +229,7 @@ function render () {
   }))
 
   document.querySelector('#plot').innerHTML = ''
+  if (graphs.length === 0) { return }
   Plotly.newPlot(
     'plot',
     graphs,

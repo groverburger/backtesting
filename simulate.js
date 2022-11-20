@@ -34,7 +34,7 @@ function loadData (dataSource) {
     if (name.includes('other/')) {
       name = name.replace('.json', '')
       name = name.replace('other/', '')
-      userdata[name] = list
+      userdata[name] = JSON.stringify(list)
     }
   })
 
@@ -102,11 +102,12 @@ function simulate (strategy, ticket) {
   let hasRun = false
 
   const buy = (symbol, percentage = 1, type = 'buy') => {
+    symbol = symbol.toUpperCase()
     percentage = Math.min(1, percentage)
     let moneyDown = percentage * money
     if (moneyDown <= 0 || money < 0.01) { return }
 
-    const price = getPrice(symbol, date)
+    const price = getPrice(symbol)
     if (!price || price === Infinity) return
 
     money -= moneyDown
@@ -127,14 +128,15 @@ function simulate (strategy, ticket) {
   }
 
   const sell = (symbol, percentage = 1) => {
+    symbol = symbol.toUpperCase()
     percentage = Math.min(percentage, 1)
     let amount = percentage * stocks[symbol]
     if (amount <= 0 || !stocks[symbol]) { return }
 
-    let price = getPrice(symbol, date)
+    let price = getPrice(symbol)
     let i = 1
     while (!price && date - i >= 0) {
-      price = getPrice(symbol, date - i)
+      price = getPrice(symbol, i)
       i += 1
     }
 
@@ -164,13 +166,17 @@ function simulate (strategy, ticket) {
 
   const getPotential = () => {
     return Object.entries(stocks).reduce(
-      (prev, [symbol, amount]) => prev + getPrice(symbol, date) * amount,
+      (prev, [symbol, amount]) => prev + getPrice(symbol) * amount,
       0
     )
   }
 
+  const getPortfolio = () => {
+    return Object.fromEntries(Object.entries(stocks).filter(([name, value]) => value))
+  }
+
   const status = () => {
-    const portfolio = Object.fromEntries(Object.entries(stocks).filter(([name, value]) => value))
+    const portfolio = getPortfolio()
     const potential = getPotential()
     const total = potential + money
     return {
@@ -183,10 +189,13 @@ function simulate (strategy, ticket) {
     }
   }
 
-  const getPrice = (symbol, index = date) => {
+  const getPrice = (symbol, index = 0) => {
+    symbol = symbol.toUpperCase()
     if (!data[symbol]) { return undefined }
     if (index instanceof Date) {
       index = timeHash[timeHashMapping(index)]
+    } else {
+      index = date - index
     }
     index = Math.min(Math.max(index, 0), date)
     if (index !== index) { return undefined }
@@ -312,14 +321,14 @@ function simulate (strategy, ticket) {
 
   const getSlope = (symbol, length = 10) => (
     linearRegression(
-      Array(length).fill(0).map((_, i) => getPrice(symbol, getDateIndex() - i)).reverse()
+      Array(length).fill(0).map((_, i) => getPrice(symbol, i)).reverse()
     )[1]
   )
 
   const movingAverage = (symbol, length = 10) => {
     let total = 0
     for (let i = 0; i < length; i += 1) {
-      total += getPrice(symbol, date - i)
+      total += getPrice(symbol, i)
     }
     return total /= length
   }
@@ -334,11 +343,12 @@ function simulate (strategy, ticket) {
     status,
     getStatus: status,
     getPrice,
-    getDateIndex,
     getSlope,
     movingAverage,
     getMovingAverage: movingAverage,
-    getUserdata: (name) => userdata[name]
+    getUserdata: (name) => userdata[name],
+    getCostBasis: (symbol) => costBasis[symbol],
+    getPortfolio
   })
   if (!hasRun) { run() }
 
@@ -349,8 +359,10 @@ function simulate (strategy, ticket) {
 
   const years = yearlyStatus.length - 1
   const stdDev = standardDeviation(yearlyStatus.filter(x => x.percentage).map(x => x.percentage))
-  const percentReturn = (status().total / 1000) * 100 - 100
-  const riskFreeReturn = Math.pow(1.04, years) * 100 - 100
+  //const percentReturn = (status().total / 1000) * 100 - 100
+  //const riskFreeReturn = Math.pow(1.04, years) * 100 - 100
+  const percentReturn = Math.pow(status().total / 1000, 1 / years) * 100 - 100
+  const riskFreeReturn = 3
   const sharpeRatio = (percentReturn - riskFreeReturn) / stdDev
 
   postMessage({
