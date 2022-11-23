@@ -348,6 +348,7 @@ function simulate (strategy, ticket) {
     getMovingAverage: movingAverage,
     getUserdata: (name) => userdata[name],
     getCostBasis: (symbol) => costBasis[symbol],
+    getHoldingPotential: (symbol) => stocks[symbol] * getPrice(symbol),
     getPortfolio
   })
   if (!hasRun) { run() }

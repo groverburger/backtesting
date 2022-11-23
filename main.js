@@ -1,4 +1,4 @@
-let editor
+let aceEditor
 let results
 let curveList = []
 let ticket = [
@@ -51,7 +51,7 @@ function setup () {
     createLoadingBackground()
     simulator.postMessage({
       action: 'simulate',
-      args: [editor.getValue(), ticket]
+      args: [aceEditor.getValue(), ticket]
     })
     setRunnable(false)
   }
@@ -186,11 +186,16 @@ function layout (mode = document.querySelector('#layout').value) {
     history.hidden = false
     plot.hidden = false
   }
+
+  if (aceEditor) {
+    aceEditor.resize()
+    aceEditor.renderer.updateFull()
+  }
 }
 
 function render () {
   if (document.querySelector('#editor')) {
-    editor = ace.edit('editor', {
+    aceEditor = ace.edit('editor', {
       mode: 'ace/mode/javascript',
       tabSize: 2,
       useSoftTabs: true
