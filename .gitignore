@@ -1,2 +1,5 @@
-/dataset-fetching/
+ideas.org
 /strategies/
+/dataset-fetching/*.zip
+/dataset-fetching/node_modules
+/dataset-fetching/stocks
