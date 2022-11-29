@@ -43,7 +43,11 @@ function loadData (dataSource) {
     let i = 0
     while (list.length < longestLength) {
       list.unshift({
-        price: 0,
+        open: 0,
+        close: 0,
+        high: 0,
+        low: 0,
+        volume: 0,
         date: longestList[i]
       })
       i += 1
@@ -146,6 +150,8 @@ function simulate (strategy, ticket) {
     money += moneyUp
     stocks[symbol] -= amount
 
+    const roi = moneyUp / costBasis[symbol]
+
     costBasis[symbol] -= moneyUp
     if (costBasis[symbol] <= 0.00001 || stocks[symbol] <= 0.00001) {
       delete costBasis[symbol]
@@ -156,6 +162,7 @@ function simulate (strategy, ticket) {
       symbol,
       money: moneyUp,
       percentage,
+      roi,
       date: timeArray[date].toISOString()
     })
 
@@ -199,13 +206,8 @@ function simulate (strategy, ticket) {
     }
     index = Math.min(Math.max(index, 0), date)
     if (index !== index) { return undefined }
-    /*
-    while (typeof data[symbol][index].price !== 'number' && index > 0) {
-      index -= 1
-    }
-    */
     if (!data[symbol][index]) { return undefined }
-    return data[symbol][index].price
+    return data[symbol][index].close
   }
 
   const newYear = () => {
