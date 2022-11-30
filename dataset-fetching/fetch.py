@@ -4,6 +4,7 @@ import datetime
 import time
 import sys
 import os
+import zipfile
 
 then = str(int(time.mktime(datetime.date(2000, 1, 1).timetuple())))
 now = str(int(datetime.datetime.timestamp(datetime.datetime.now()) * 1000))
@@ -55,13 +56,33 @@ def fetch_symbol(symbol):
                 file.write(json.dumps(data))
     return True
 
+# read the fetchlist, and fetch each stock listed
 with open('fetchlist.json', 'r') as file:
     fetchlist = json.load(file)
     for entry in fetchlist:
-        print(entry)
-        sys.stdout.flush() # so that stdout is updated while running
         try:
             if fetch_symbol(entry):
+                print(entry)
+                # we have to wait more than 1/5 sec bt fetches
+                # or else yahoo will block us for DDOSing
                 time.sleep(1 / 4)
         except:
             print(f'couldn\'t fetch {entry}!')
+        sys.stdout.flush() # so that stdout is updated while running
+
+# write updated metadata for this dataset
+with open('metadata.json', 'w') as file:
+    file.write(json.dumps({
+        "version": 1,
+        "fetchDate": str(datetime.datetime.now())
+    }))
+
+# zip the fetched stocks and userdata
+with zipfile.ZipFile('dataset.zip', 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+    for path, directories, files in os.walk('stocks'):
+        for f in files:
+            z.write(os.path.join(path, f))
+    for path, directories, files in os.walk('other'):
+        for f in files:
+            z.write(os.path.join(path, f))
+    z.write('metadata.json')

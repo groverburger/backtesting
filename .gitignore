@@ -3,3 +3,4 @@ ideas.org
 /dataset-fetching/*.zip
 /dataset-fetching/node_modules
 /dataset-fetching/stocks
+/dataset-fetching/metadata.json
