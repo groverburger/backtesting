@@ -174,9 +174,12 @@ function layout (mode = document.querySelector('#layout').value) {
   }
 
   if (mode === 'results') {
-    results.style = 'grid-column: 1 / 7; grid-row: 1 / 3;'
-    history.style = 'grid-column: 7 / 13; grid-row: 1 / 3;'
+    results.style = 'grid-column: 1 / 13; grid-row: 1 / 3;'
     results.hidden = false
+  }
+
+  if (mode === 'history') {
+    history.style = 'grid-column: 1 / 13; grid-row: 1 / 3;'
     history.hidden = false
   }
 
@@ -204,7 +207,6 @@ function render () {
       tabSize: 2,
       useSoftTabs: true
     })
-    //editor.setTheme("ace/theme/monokai")
   }
 
   if (!results) { return }
@@ -233,6 +235,8 @@ function render () {
     'plot',
     graphs,
     {
+      paper_bgcolor: 'rgba(255, 255, 255, 0.5)',
+      plot_bgcolor: 'rgba(255, 255, 255, 0)',
       xaxis: {
         autorange: true
       },

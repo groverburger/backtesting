@@ -104,6 +104,9 @@ function simulate (strategy, ticket) {
   let exposure = 0
   let totalPossibleExposure = 0
   let hasRun = false
+  let maxDrawdown = 0
+  let drawdown = 0
+  let allTimeHigh = 1000
 
   const buy = (symbol, percentage = 1, type = 'buy') => {
     symbol = symbol.toUpperCase()
@@ -183,21 +186,11 @@ function simulate (strategy, ticket) {
   }
 
   const getPortfolio = () => {
-    return Object.fromEntries(Object.entries(stocks).filter(([name, value]) => value))
-  }
-
-  const status = () => {
-    const portfolio = getPortfolio()
-    const potential = getPotential()
-    const total = potential + money
-    return {
-      portfolio,
-      myStocks: portfolio,
-      costBasis,
-      money,
-      potential,
-      total
-    }
+    return Object.fromEntries(
+      Object.entries(stocks)
+        .filter(([name, value]) => value)
+        .map(([name, value]) => [name, value * getPrice(name)])
+    )
   }
 
   const getPriceData = (symbol, datatype = 'close', index = 0) => {
@@ -217,7 +210,7 @@ function simulate (strategy, ticket) {
   const getPrice = (symbol, index = 0) => getPriceData(symbol, 'close', index)
 
   const newYear = () => {
-    const total = status().total
+    const total = getPotential() + money
     const delta = total - yearlyStatus.at(-1).money
     const percentage = Math.round(delta * 100 / yearlyStatus.at(-1).money)
     const tax = 0 // delta > 0 ? delta / 3 : 0
@@ -243,6 +236,13 @@ function simulate (strategy, ticket) {
         timeArray[date].toISOString(),
         getPotential() + money,
       ])
+      if (returns.at(-1)[1] < allTimeHigh) {
+        drawdown += 1
+        maxDrawdown = Math.max(drawdown, maxDrawdown)
+      } else {
+        allTimeHigh = returns.at(-1)[1]
+        drawdown = 0
+      }
 
       let isExposed = false
       for (const stock in stocks) {
@@ -328,7 +328,7 @@ function simulate (strategy, ticket) {
   */
 
   yearlyStatus.push({
-    money: status().total
+    money: getPotential() + money
   })
 
   const getSlope = (symbol, length = 10) => (
@@ -337,7 +337,7 @@ function simulate (strategy, ticket) {
     )[1]
   )
 
-  const movingAverage = (symbol, length = 10) => {
+  const getMovingAverage = (symbol, length = 10) => {
     let total = 0
     for (let i = 0; i < length; i += 1) {
       total += getPrice(symbol, i)
@@ -347,21 +347,18 @@ function simulate (strategy, ticket) {
 
   // execute the strategy
   strategy = Function('api', strategy)
-  const customResults = strategy({
+  strategy({
     run,
     buy,
     sell,
-    sellAll: () => Object.keys(status().portfolio).forEach(stock => sell(stock)),
-    status,
-    getStatus: status,
+    sellAll: () => Object.keys(getPortfolio()).forEach(stock => sell(stock)),
     getPrice,
     getSlope,
-    movingAverage,
-    getMovingAverage: movingAverage,
+    getMovingAverage,
+    getPortfolio,
     getUserdata: (name) => userdata[name],
     getCostBasis: (symbol) => costBasis[symbol],
-    getHoldingPotential: (symbol) => stocks[symbol] * getPrice(symbol),
-    getPortfolio
+    getHoldingPotential: (symbol) => stocks[symbol] * getPrice(symbol)
   })
   if (!hasRun) { run() }
 
@@ -372,9 +369,7 @@ function simulate (strategy, ticket) {
 
   const years = yearlyStatus.length - 1
   const stdDev = standardDeviation(yearlyStatus.filter(x => x.percentage).map(x => x.percentage))
-  //const percentReturn = (status().total / 1000) * 100 - 100
-  //const riskFreeReturn = Math.pow(1.04, years) * 100 - 100
-  const percentReturn = Math.pow(status().total / 1000, 1 / years) * 100 - 100
+  const percentReturn = Math.pow((getPotential() + money) / 1000, 1 / years) * 100 - 100
   const riskFreeReturn = 3
   const sharpeRatio = (percentReturn - riskFreeReturn) / stdDev
 
@@ -385,15 +380,18 @@ function simulate (strategy, ticket) {
       ticket,
       yearlyStatus,
       results: {
-        ...status(),
-        ...(typeof customResults === 'object' ? customResults : {}),
+        sharpeRatio,
+        stdDev,
+        percentReturn,
+        maxDrawdown,
         exposure: exposure / totalPossibleExposure,
         buys: ticket.filter(e => e.type === 'buy').length,
         sells: ticket.filter(e => e.type === 'sell').length,
-        percentReturn,
-        riskFreeReturn,
-        stdDev,
-        sharpeRatio
+        total: getPotential() + money,
+        potential: getPotential(),
+        money,
+        portfolio: getPortfolio(),
+        costBasis
       }
     }
   })
