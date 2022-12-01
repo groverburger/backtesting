@@ -19,6 +19,15 @@ function setup () {
   const simulator = new Worker('simulate.js')
   simulator.postMessage(['test'])
 
+  function addSpy () {
+    createLoadingBackground()
+    simulator.postMessage({
+      action: 'simulate',
+      args: ['api.buy("SPY")', ticket]
+    })
+    setRunnable(false)
+  }
+
   simulator.onmessage = ({ data }) => {
     const { type, payload } = data
 
@@ -37,7 +46,9 @@ function setup () {
     }
 
     if (type === 'dataset-loaded') {
+      document.querySelector('#mainScreen').hidden = false
       setRunnable(true)
+      addSpy()
     }
   }
 
@@ -59,15 +70,7 @@ function setup () {
   document.querySelector('#clear').onclick = (event) => {
     curveList = []
     render()
-  }
-
-  document.querySelector('#addSpy').onclick = (event) => {
-    createLoadingBackground()
-    simulator.postMessage({
-      action: 'simulate',
-      args: ['api.buy("SPY")', ticket]
-    })
-    setRunnable(false)
+    addSpy()
   }
 
   let dataset
@@ -76,6 +79,7 @@ function setup () {
     input.type = 'file'
     input.onchange = async (event) => {
       const { files } = await JSZip.loadAsync(input.files[0])
+      document.querySelector('#uploadScreen').hidden = true
       createLoadingBackground()
 
       // hopefully this should prevent the not being able to load datasets bug
@@ -89,6 +93,7 @@ function setup () {
         i += 1
         document.querySelector('#loadingBackground progress').value = Math.round(i * 100 / length)
       }
+
       simulator.postMessage({
         action: 'load',
         args: [dataset]
@@ -120,7 +125,6 @@ function setup () {
 
 function setRunnable (value = false) {
   document.querySelector('#run').disabled = !value
-  document.querySelector('#addSpy').disabled = !value
 
   if (value) {
     document.querySelector('#loadingBackground').remove()
@@ -215,16 +219,6 @@ function render () {
   if (document.querySelector('#history')) {
     document.querySelector('#history').innerHTML = JSON.stringify(results.ticket, null, 2)
   }
-
-  /*
-  const graphs = [{
-    x: results.returns.map(e => e[0]),
-    y: results.returns.map(e => e[1]),
-    type: 'scatter',
-    mode: 'lines',
-    name: 'strat'
-  }]
-  */
 
   const graphs = curveList.map(({ x, y }) => ({
     type: 'scatter',

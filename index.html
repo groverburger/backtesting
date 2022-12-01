@@ -78,25 +78,29 @@
   </style>
 
   <body>
-    <button id='run'> Run </button>
-    <button id='upload'> Upload Dataset </button>
-    <button id='clear'> Clear Graph </button>
-    <button id='addSpy'> Add SPY to Graph </button>
-    Layout:
-    <select id='layout' value='code+graph'>
-      <option value='code+graph'> Code and Graph </option>
-      <option value='graph'> Graph </option>
-      <option value='code'> Code </option>
-      <option value='results'> Results </option>
-    </select>
-    Start Date:
-    <input type='date' id='startDate' />
-    <div id='title'> Backtester v0.1 </div>
-    <div id='gridWrapper'>
-      <div id='editor'></div>
-      <div id='results'></div>
-      <div id='history'></div>
-      <div id='plot'></div>
+    <div id='uploadScreen'>
+      <h1> Upload a dataset to start </h1>
+      <button id='upload'> Upload Dataset </button>
+    </div>
+    <div id='mainScreen' hidden>
+      <button id='run'> Run </button>
+      <button id='clear'> Clear Graph </button>
+      Layout:
+      <select id='layout' value='code+graph'>
+        <option value='code+graph'> Code and Graph </option>
+        <option value='graph'> Graph </option>
+        <option value='code'> Code </option>
+        <option value='results'> Results </option>
+      </select>
+      Start Date:
+      <input type='date' id='startDate' />
+      <div id='title'> Backtester v0.1 </div>
+      <div id='gridWrapper'>
+        <div id='editor'></div>
+        <div id='results'></div>
+        <div id='history'></div>
+        <div id='plot'></div>
+      </div>
     </div>
   </body>
 

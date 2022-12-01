@@ -171,11 +171,15 @@ function simulate (strategy, ticket) {
 
   const getDateIndex = () => date
 
-  const getPotential = () => {
-    return Object.entries(stocks).reduce(
-      (prev, [symbol, amount]) => prev + getPrice(symbol) * amount,
-      0
-    )
+  const getPotential = (datatype = 'close') => {
+    let potential = 0
+    for (const stock in stocks) {
+      const amount = stocks[stock]
+      if (amount > 0) {
+        potential += getPriceData(stock, datatype) * amount
+      }
+    }
+    return potential
   }
 
   const getPortfolio = () => {
@@ -196,7 +200,7 @@ function simulate (strategy, ticket) {
     }
   }
 
-  const getPrice = (symbol, index = 0) => {
+  const getPriceData = (symbol, datatype = 'close', index = 0) => {
     symbol = symbol.toUpperCase()
     if (!data[symbol]) { return undefined }
     if (index instanceof Date) {
@@ -207,8 +211,10 @@ function simulate (strategy, ticket) {
     index = Math.min(Math.max(index, 0), date)
     if (index !== index) { return undefined }
     if (!data[symbol][index]) { return undefined }
-    return data[symbol][index].close
+    return data[symbol][index][datatype]
   }
+
+  const getPrice = (symbol, index = 0) => getPriceData(symbol, 'close', index)
 
   const newYear = () => {
     const total = status().total
@@ -233,7 +239,11 @@ function simulate (strategy, ticket) {
         strat(timeArray[date])
       }
 
-      returns.push([timeArray[date].toISOString(), getPotential() + money])
+      returns.push([
+        timeArray[date].toISOString(),
+        getPotential() + money,
+      ])
+
       let isExposed = false
       for (const stock in stocks) {
         if (stocks[stock]) {
