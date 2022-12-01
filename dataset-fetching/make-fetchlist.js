@@ -19,7 +19,8 @@ const excludes = [
   'SGP',
   'PCL',
   'EP',
-  'HNZ'
+  'HNZ',
+  'COL'
 ]
 
 // combine the nasdaq and historical S&P listings
