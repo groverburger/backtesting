@@ -54,7 +54,7 @@ function setup () {
 
   simulator.onerror = (event) => {
     console.error(event)
-    alert(event.message)
+    alert(`${event.message}\nline: ${event.lineno}\ncolumn: ${event.colno}`)
     setRunnable(true)
   }
 
