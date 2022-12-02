@@ -85,7 +85,7 @@ function linearRegression (yAxis) {
 }
 
 function standardDeviation (data) {
-  if (data.length === 0) { return NaN }
+  if (data.length === 0) { return 0 }
   const average = data.reduce((t, e) => e + t) / data.length
   const distances = data.reduce((t, e) => t + Math.pow(e - average, 2), 0)
   return Math.sqrt(distances / data.length)
@@ -107,14 +107,30 @@ function simulate (strategy, ticket) {
   let maxDrawdown = 0
   let drawdown = 0
   let allTimeHigh = 1000
+  let orderQueue = []
 
-  const buy = (symbol, percentage = 1, type = 'buy') => {
+  const buy = (symbol, percentage = 1) => {
+    orderQueue.push({
+      type: 'buy',
+      symbol,
+      percentage
+    })
+  }
+
+  const sell = (symbol, percentage = 1) => {
+    orderQueue.push({
+      type: 'sell',
+      symbol,
+      percentage
+    })
+  }
+
+  const executeBuyOrder = (symbol, percentage = 1, type = 'buy') => {
     symbol = symbol.toUpperCase()
-    percentage = Math.min(1, percentage)
-    let moneyDown = percentage * money
+    let moneyDown = money * (typeof percentage === 'number' ? percentage : 1)
     if (moneyDown <= 0 || money < 0.01) { return }
 
-    const price = getPrice(symbol)
+    const price = getPriceData(symbol, 'open')
     if (!price || price === Infinity) return
 
     money -= moneyDown
@@ -134,16 +150,15 @@ function simulate (strategy, ticket) {
     return true
   }
 
-  const sell = (symbol, percentage = 1) => {
+  const executeSellOrder = (symbol, percentage = 1) => {
     symbol = symbol.toUpperCase()
-    percentage = Math.min(percentage, 1)
-    let amount = percentage * stocks[symbol]
+    let amount = stocks[symbol] * (typeof percentage === 'number' ? percentage : 1)
     if (amount <= 0 || !stocks[symbol]) { return }
 
-    let price = getPrice(symbol)
+    let price = getPriceData(symbol, 'open')
     let i = 1
     while (!price && date - i >= 0) {
-      price = getPrice(symbol, i)
+      price = getPriceData(symbol, 'open', i)
       i += 1
     }
 
@@ -174,12 +189,12 @@ function simulate (strategy, ticket) {
 
   const getDateIndex = () => date
 
-  const getPotential = (datatype = 'close') => {
+  const getPotential = () => {
     let potential = 0
     for (const stock in stocks) {
       const amount = stocks[stock]
       if (amount > 0) {
-        potential += getPriceData(stock, datatype) * amount
+        potential += getPrice(stock) * amount
       }
     }
     return potential
@@ -228,14 +243,32 @@ function simulate (strategy, ticket) {
     hasRun = true
 
     while (date < endDate) {
+      // execute orders
+      while (orderQueue.length) {
+        const order = orderQueue.shift()
+        const { type, symbol, percentage } = order
+
+        if (type === 'buy') {
+          executeBuyOrder(symbol, percentage)
+        }
+
+        if (type === 'sell') {
+          executeSellOrder(symbol, percentage)
+        }
+      }
+
+      // run the strategy
       if (strat) {
         strat(timeArray[date])
       }
 
+      // record the potential at this bar
       returns.push([
         timeArray[date].toISOString(),
         getPotential() + money,
       ])
+
+      // calculate drawdown
       if (returns.at(-1)[1] < allTimeHigh) {
         drawdown += 1
         maxDrawdown = Math.max(drawdown, maxDrawdown)
@@ -244,6 +277,7 @@ function simulate (strategy, ticket) {
         drawdown = 0
       }
 
+      // calculate exposure and dividends
       let isExposed = false
       for (const stock in stocks) {
         if (stocks[stock]) {
@@ -259,11 +293,13 @@ function simulate (strategy, ticket) {
       }
       if (isExposed) { exposure += 1 }
       totalPossibleExposure += 1
+
+      // increment the date counter
       date += 1
 
+      // update the progress bar
       const progress = Math.round((date - startDate) * 100 / (endDate - startDate))
       const lastProgress = Math.round(((date - 1) - startDate) * 100 / (endDate - startDate))
-
       if (progress > lastProgress) {
         postMessage({
           type: 'simulation-progress',
