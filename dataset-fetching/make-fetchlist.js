@@ -20,14 +20,15 @@ const excludes = [
   'PCL',
   'EP',
   'HNZ',
-  'COL'
+  'COL',
+  'RSH'
 ]
 
 // combine the nasdaq and historical S&P listings
 const companies = [...(new Set(spHistory.flatMap(x => x.sp500).filter(x => !excludes.includes(x))))]
 
 // fill in the gaps of some companies that were excluded
-companies.push('UA')
+//companies.push('UA')
 companies.push('UAA')
 companies.push('ETN')
 companies.push('FLEX')

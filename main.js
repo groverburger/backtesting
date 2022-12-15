@@ -16,8 +16,7 @@ window.onresize = render
 setRunnable(false)
 
 function setup () {
-  const simulator = new Worker('simulate.js')
-  simulator.postMessage(['test'])
+  const simulator = new Worker('simulate.cjs')
 
   function addSpy () {
     createLoadingBackground()

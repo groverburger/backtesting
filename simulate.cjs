@@ -110,6 +110,7 @@ function simulate (strategy, ticket) {
   let orderQueue = []
 
   const buy = (symbol, percentage = 1) => {
+    if (percentage === 0) { return }
     orderQueue.push({
       type: 'buy',
       symbol,
@@ -118,6 +119,7 @@ function simulate (strategy, ticket) {
   }
 
   const sell = (symbol, percentage = 1) => {
+    if (percentage === 0) { return }
     orderQueue.push({
       type: 'sell',
       symbol,
@@ -127,7 +129,7 @@ function simulate (strategy, ticket) {
 
   const executeBuyOrder = (symbol, percentage = 1, type = 'buy') => {
     symbol = symbol.toUpperCase()
-    let moneyDown = money * (typeof percentage === 'number' ? percentage : 1)
+    let moneyDown = Math.min(money, money * (typeof percentage === 'number' ? percentage : 1))
     if (moneyDown <= 0 || money < 0.01) { return }
 
     const price = getPriceData(symbol, 'open')
@@ -152,7 +154,7 @@ function simulate (strategy, ticket) {
 
   const executeSellOrder = (symbol, percentage = 1) => {
     symbol = symbol.toUpperCase()
-    let amount = stocks[symbol] * (typeof percentage === 'number' ? percentage : 1)
+    let amount = Math.min(stocks[symbol], stocks[symbol] * (typeof percentage === 'number' ? percentage : 1))
     if (amount <= 0 || !stocks[symbol]) { return }
 
     let price = getPriceData(symbol, 'open')
@@ -387,14 +389,15 @@ function simulate (strategy, ticket) {
     run,
     buy,
     sell,
-    sellAll: () => Object.keys(getPortfolio()).forEach(stock => sell(stock)),
     getPrice,
     getSlope,
     getMovingAverage,
+    getPotential,
     getPortfolio,
+    sellAll: () => Object.keys(getPortfolio()).forEach(stock => sell(stock)),
     getUserdata: (name) => userdata[name],
     getCostBasis: (symbol) => costBasis[symbol],
-    getHoldingPotential: (symbol) => stocks[symbol] * getPrice(symbol)
+    getROI: (symbol) => (getPrice(symbol) * stocks[symbol]) / costBasis[symbol]
   })
   if (!hasRun) { run() }
 
@@ -417,17 +420,22 @@ function simulate (strategy, ticket) {
       yearlyStatus,
       results: {
         sharpeRatio,
-        stdDev,
         percentReturn,
+        stdDev,
         maxDrawdown,
         exposure: exposure / totalPossibleExposure,
         buys: ticket.filter(e => e.type === 'buy').length,
         sells: ticket.filter(e => e.type === 'sell').length,
+        winRate: ticket.filter(x => x.type === 'sell' && x.roi > 1).length / ticket.filter(x => x.type === 'sell').length,
+        roi: ticket.reduce((total, now) => now.type === 'sell' ? (total + now.roi) : total, 0) / ticket.filter(x => x.type === 'sell').length,
+        roiWin: ticket.reduce((total, now) => now.type === 'sell' && now.roi > 1 ? (total + now.roi) : total, 0) / ticket.filter(x => x.type === 'sell' && x.roi > 1).length,
+        roiLoss: ticket.reduce((total, now) => now.type === 'sell' && now.roi <= 1 ? (total + now.roi) : total, 0) / ticket.filter(x => x.type === 'sell' && x.roi <= 1).length,
         total: getPotential() + money,
         potential: getPotential(),
         money,
         portfolio: getPortfolio(),
-        costBasis
+        costBasis,
+        orderQueue
       }
     }
   })
